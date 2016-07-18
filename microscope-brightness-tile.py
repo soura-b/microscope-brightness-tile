@@ -4,6 +4,8 @@ from PIL import ImageStat
 from datetime import datetime
 import math
 
+print 'Program start', datetime.now()
+
 #input parameters
 firstImageID = 1                             # serial number of the first image - integer value
 lastImageID = 600                            # serial number of the first image  - integer value
@@ -14,7 +16,7 @@ imgBrightList = []                           # list to store image brightness va
 imgBrightCorrList = []                       # list to store image brightness correction values = avg_brightness - image_brightness
 input_folder = 'input/'                      # The sub-folder where the input images are stored
 output_folder = 'interim_output/' 	         # The sub-folder where INDIVIDUAL brightness-adjusted images are stored. The final image is stored in root folder
-finalImgName = 'final_canvas_image'          # Name of final tiledimage
+finalImgName = 'final_canvas_image_2'        # Name of final tiledimage
 xCoordFile = 'configx.txt'                   # name of text file with x Coordinates; should be in root folder. else preface name with 'subfolder/'
 yCoordFile = 'configy.txt'				     # name of text file with y Coordinates; should be in root folder. else preface name with 'subfolder/'
 xCoordinates = []                           # array that stores all x Coordinates
@@ -38,7 +40,6 @@ i = firstImageID
 while i < lastImageID + 1:
     imageStringList.append(str(i).rjust(stringLength,'0'))
     i = i + 1
-print imageStringList
 
 # PART II: Adjusts brightness of individual images
 # -------
@@ -62,27 +63,31 @@ avg_brightness = sum(imgBrightList[0:])/num_images
 
 for i in range(0, num_images):
    imgBrightCorrList.append(i)
-   imgBrightCorrList[i] = avg_brightness - imgBrightList[i]   # imgBrightCorrList[] is a list of all the correction values
+   imgBrightCorrList[i] = (avg_brightness - imgBrightList[i])/255   # imgBrightCorrList[] is a list of all the correction values, normalized against 255 (max value)
    
-# Opens each input file, loads onto pixel map, re-draws pixel-by-pixel with brightness correction
+# Set image size based on first image
+image_name = Image.open(output_folder + 'image' + imageStringList[0] + '.jpg') 
+width, height = image_name.size
+# print width, height
+
+# Opens each input file
+# Blends the input file with a white (255, 255, 255) file, weighted by the Brightnesss correction value
 # Finally, saves to output file in output folder
 print 'Color correction start', datetime.now()
 print 'Image being written',
 
-for k in range(0, num_images):		
+img_file_white = Image.new("RGB", (width, height), "white")
+
+for k in range(0, num_images):
    image_name = input_folder + imageStringList[k] + '.jpg'
-   img_file = Image.open(image_name)
-   img_file = img_file.convert('RGB')     # converts image to RGB format, writes it back to the original image
-   pixels = img_file.load()               # creates the pixel map
-   for i in range (img_file.size[0]):
-      for j in range (img_file.size[1]):
-         r, g, b = img_file.getpixel((i,j))  # extracts r g b values for the i x j th pixel
-         pixels[i,j] = (r+int(imgBrightCorrList[k]), g+int(imgBrightCorrList[k]), b+int(imgBrightCorrList[k])) # re-creates the image
-   new_image_name = output_folder +'image' + imageStringList[k] + '.jpg'      # output stored in output_folder. 
-   img_file.save(new_image_name)
+   img_file = Image.open(image_name)   
+   correctionVal = imgBrightCorrList[k]
+   img_blended = Image.blend(img_file, img_file_white, correctionVal)
+   correctedImageName = output_folder +'image' + imageStringList[k] + '.jpg'
+   img_blended.save(correctedImageName)
    print imageStringList[k],
 
-
+  
 # Calculate min and max x/y values of all images from their input coordinates
 min_x = 0.0
 max_x = 0.0
@@ -104,11 +109,6 @@ for i in xCoordinates:
 # Calculate pane (canvas) size
 y_height = max_y - min_y
 x_width = max_x - min_x
-
-# Set image size based on first image
-image_name = Image.open(output_folder + 'image' + imageStringList[0] + '.jpg') 
-width, height = image_name.size
-# print width, height
 
 canvas_width = int(x_width) + width
 canvas_height = int(y_height) + height
